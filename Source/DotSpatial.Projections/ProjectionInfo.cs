@@ -689,9 +689,11 @@ namespace DotSpatial.Projections
         }
 
         /// <summary>
-        /// Gets a boolean that is true if the Esri WKT string created by the projections matches.
-        ///   There are multiple ways to write the same projection, but the output Esri WKT string
-        ///   should be a good indicator of whether or not they are the same.
+        /// Gets a boolean that is true if the projections match. There are multiple ways to write
+        /// the same projection but comparing Esri WKT/Proj4 strings can result in false positives.
+        /// This is due to case differentiations, discrepancies between the representations,
+        /// and inconsistencies between American and BIPM spelling. Instead we only compare actual
+        /// values associated with the ProjectionInfo and disregard naming conventions entirely.
         /// </summary>
         /// <param name="other">
         /// The other projection to compare with.
@@ -701,12 +703,47 @@ namespace DotSpatial.Projections
         /// </returns>
         public bool Equals(ProjectionInfo other)
         {
-            if (other == null)
+            if (other == null) return false;
+            if (!GeographicInfo.Datum.Spheroid.Code.Equals(other.GeographicInfo.Datum.Spheroid.Code)) return false;
+            if (!GeographicInfo.Datum.Spheroid.EquatorialRadius.Equals(other.GeographicInfo.Datum.Spheroid.EquatorialRadius)) return false;
+            if (!GeographicInfo.Datum.Spheroid.InverseFlattening.Equals(other.GeographicInfo.Datum.Spheroid.InverseFlattening)) return false;
+            if (!GeographicInfo.Datum.Spheroid.PolarRadius.Equals(other.GeographicInfo.Datum.Spheroid.PolarRadius)) return false;
+            if (!GeographicInfo.Meridian.Code.Equals(other.GeographicInfo.Meridian.Code)) return false;
+            if (!GeographicInfo.Meridian.Longitude.Equals(other.GeographicInfo.Meridian.Longitude)) return false;
+            if (!GeographicInfo.Unit.Name.ToLower().Equals(other.GeographicInfo.Unit.Name.ToLower())) return false;
+            if (!GeographicInfo.Unit.Radians.Equals(other.GeographicInfo.Unit.Radians)) return false;
+            if (!Unit.Meters.Equals(other.Unit.Meters)) return false;
+            if (!FalseEasting.Equals(other.FalseEasting)) return false;
+            if (!FalseNorthing.Equals(other.FalseNorthing)) return false;
+            if (!IsGeocentric.Equals(other.IsGeocentric)) return false;
+            if (!IsLatLon.Equals(other.IsLatLon)) return false;
+            if (!IsSouth.Equals(other.IsSouth)) return false;
+            if (!LatitudeOfOrigin.Equals(other.LatitudeOfOrigin)) return false;
+            if (!LongitudeOfCenter.Equals(other.LongitudeOfCenter)) return false;
+            if (!NoDefs.Equals(other.NoDefs)) return false;
+            if (!Over.Equals(other.Over)) return false;
+            if (!ScaleFactor.Equals(other.ScaleFactor)) return false;
+            if (!StandardParallel1.Equals(other.StandardParallel1)) return false;
+            if (!StandardParallel2.Equals(other.StandardParallel2)) return false;
+            if (!Transform.Name.Equals(other.Transform.Name)) return false;
+            if (CentralMeridianValid() && !other.CentralMeridianValid()) return false;
+            if (!CentralMeridianValid() && other.CentralMeridianValid()) return false;
+            if (CentralMeridianValid() && other.CentralMeridianValid())
             {
-                return false;
+                if (other.CentralMeridian != null 
+                    && (CentralMeridian != null 
+                    && !CentralMeridian.Value.Equals(other.CentralMeridian.Value))) return false;
             }
-
-            return ToEsriString().Equals(other.ToEsriString()) || ToProj4String().Equals(other.ToProj4String());
+            if (Zone.HasValue && !other.Zone.HasValue) return false;
+            if (!Zone.HasValue && other.Zone.HasValue) return false;
+            if (Zone.HasValue && other.Zone.HasValue)
+            {
+                if (!Zone.Value.Equals(other.Zone.Value)) return false;
+            }
+            // todo: investigate other spelling conversions that may be required
+            // replace 'BIPM' spelling with 'American' spelling. (standardize the comparison)
+            if (!Unit.Name.Replace("metre", "meter").ToLower().Equals(other.Unit.Name.ToLower().Replace("metre", "meter"))) return false;
+            return true;
         }
 
         /// <summary>
